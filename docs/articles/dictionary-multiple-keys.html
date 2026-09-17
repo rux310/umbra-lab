@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excel VBAのDictionaryで複数項目をまとめて集計する | Umbra Lab</title>
+  <meta name="description" content="A列とC列の組み合わせをDictionaryのキーにし、順不同で並ぶ重複項目のF列を合計して別シートへ書き出す方法を解説します。">
+  <meta name="theme-color" content="#0d0e14">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="Umbra Lab トップへ">
+      <img class="brand-mark" src="../assets/umbra-mark.svg" alt="">
+      <span>UMBRA <strong>LAB</strong></span>
+    </a>
+    <span class="section-name">VBA / Dictionary</span>
+  </header>
+
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+
+  <main id="top" class="page-shell">
+    <aside class="toc" aria-label="この記事の目次">
+      <p class="toc-label">CONTENTS</p>
+      <nav>
+        <a href="#overview">今回の目的</a>
+        <a href="#why">Dictionaryを選んだ理由</a>
+        <a href="#key">複数項目を一つのキーに</a>
+        <a href="#sample">集計前と集計後</a>
+        <a href="#logic">重複を判定して加算</a>
+        <a href="#full-code">全体コード</a>
+        <a href="#points">注意点</a>
+        <a href="#summary">まとめ</a>
+      </nav>
+    </aside>
+
+    <article class="article">
+      <nav class="breadcrumb" aria-label="パンくずリスト"><a href="../index.html">トップ</a><span>/</span><span>VBA</span></nav>
+      <header class="article-header">
+        <div class="eyebrow"><span>VBA</span><span>実務メモ</span></div>
+        <h1>Dictionaryで複数項目の<br>重複をまとめて集計する</h1>
+        <p class="lead">A列とC列の組み合わせが同じ行を探し、F列の数値を合計したい。離れた場所に同じ項目が並ぶデータを、Dictionaryで一度に集計します。</p>
+        <div class="article-meta"><span>2026.09.13</span><span>読了目安 8分</span></div>
+      </header>
+
+      <section id="overview">
+        <p>今回やりたかったのは、重複している項目をまとめ、同じ項目に対応する数値の合計を出す処理です。</p>
+        <p>元データでは、集計の基準になる項目がA列とC列にあり、合計したい数値がF列に入っています。A列とC列の両方が同じ行を一つのグループとして扱い、集計結果を別シートのA列・C列・F列へ書き出します。</p>
+        <div class="note"><span class="note-icon">i</span><p>実際の項目名やシート名は使わず、この記事では一般的な名称とサンプルデータに置き換えています。</p></div>
+      </section>
+
+      <section id="why">
+        <p class="section-kicker">WHY DICTIONARY</p>
+        <h2>順不同の重複データをどうまとめるか</h2>
+        <p>同じ項目が連続して並んでいれば、一つ前の行と比較しながら集計する方法も考えられます。しかし今回は、同じ組み合わせが離れた行にランダムに入っていました。</p>
+        <p>そこで、すでに登場した項目と合計値をセットで覚えておける<code>Dictionary</code>を使います。</p>
+        <div class="comparison-grid">
+          <div><span class="comparison-label">For～Next</span><strong>全行を順番に読む</strong><p>元データを上から下まで確認する役割。</p></div>
+          <div><span class="comparison-label">Dictionary</span><strong>既出かを判定して合計する</strong><p>同じ項目が離れていても、一つの合計値にまとめる役割。</p></div>
+        </div>
+        <blockquote><p>For～NextとDictionaryの二者択一ではなく、Forで読み、Dictionaryでまとめる。</p></blockquote>
+      </section>
+
+      <section id="key">
+        <p class="section-kicker">COMPOSITE KEY</p>
+        <h2>A列とC列を一つのキーにする</h2>
+        <p>最初に見た解説では、検索する項目が一つだけでした。今回はA列とC列の二つが一致したときに同じ項目と判断したいため、二つの値を連結してDictionaryのキーにします。</p>
+        <div class="key-flow" aria-label="複数項目からキーを作る流れ">
+          <div><small>A列</small><strong>部品A</strong></div>
+          <span aria-hidden="true">＋</span>
+          <div><small>C列</small><strong>工程1</strong></div>
+          <span aria-hidden="true">→</span>
+          <div class="key-result"><small>Dictionaryのキー</small><strong>部品A［区切り］工程1</strong></div>
+        </div>
+        <div class="code-block compact"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>key = CStr(.Cells(i, "A").Value) &amp; vbTab &amp; _
+      CStr(.Cells(i, "C").Value)</code></pre></div>
+        <p><code>vbTab</code>は、A列とC列の値を区切るために挟んでいます。たとえば「部品A＋工程1」と「部品A＋工程2」は、別のキーとして保存されます。</p>
+      </section>
+
+      <section id="sample">
+        <p class="section-kicker">BEFORE / AFTER</p>
+        <h2>離れた行にある同じ組み合わせを集計する</h2>
+        <p>次の例では、「部品A・工程1」と「部品B・工程2」が離れた行に重複があります。これを右表のように行の並び順に関係なく、それぞれのF列を合算させます。</p>
+        <div class="aggregation-demo">
+          <div class="data-panel">
+            <div class="data-panel-head"><span>集計前</span><small>元データ</small></div>
+            <div class="sheet-scroll">
+              <table class="mini-sheet">
+                <thead><tr><th>A列</th><th>C列</th><th>F列</th></tr></thead>
+                <tbody>
+                  <tr><td>部品A</td><td>工程1</td><td>3</td></tr>
+                  <tr><td>部品B</td><td>工程2</td><td>2</td></tr>
+                  <tr class="duplicate-row"><td>部品A</td><td>工程1</td><td>5</td></tr>
+                  <tr><td>部品A</td><td>工程2</td><td>4</td></tr>
+                  <tr class="duplicate-row"><td>部品B</td><td>工程2</td><td>6</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <span class="aggregate-arrow" aria-hidden="true">→</span>
+          <div class="data-panel result-panel">
+            <div class="data-panel-head"><span>集計後</span><small>別シートへ出力</small></div>
+            <div class="sheet-scroll">
+              <table class="mini-sheet">
+                <thead><tr><th>A列</th><th>B列(C列)</th><th>C列 (F列合計)</th></tr></thead>
+                <tbody>
+                  <tr><td>部品A</td><td>工程1</td><td>8</td></tr>
+                  <tr><td>部品B</td><td>工程2</td><td>8</td></tr>
+                  <tr><td>部品A</td><td>工程2</td><td>4</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="logic">
+        <p class="section-kicker">CORE LOGIC</p>
+        <h2>同じキーがあれば加算、なければ登録</h2>
+        <p>Dictionaryを使う中心部分は、次の<code>Exists</code>による分岐です。<code>CDbl</code>関数は、数値や数値形式の文字列を小数を含む実数として扱いたい場合に使用します。</p>
+        <div class="code-block"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>If dict.Exists(key) Then
+    dict(key) = dict(key) + CDbl(.Cells(i, "F").Value)
+Else
+    dict.Add key, CDbl(.Cells(i, "F").Value)
+End If</code></pre></div>
+        <div class="explain-grid">
+          <div><code>dict.Exists(key)</code><p>同じA列・C列の組み合わせが、すでに登録されているか確認する。</p></div>
+          <div><code>dict(key) + 数値</code><p>登録済みなら、そのキーが持っている合計値へF列の数値を加える。</p></div>
+          <div><code>dict.Add</code><p>初めて登場した組み合わせなら、キーとF列の数値を新しく登録する。</p></div>
+          <div><code>dict.Keys</code><p>集計後、重複のないキーを一つずつ取り出して別シートへ出力する。</p></div>
+        </div>
+      </section>
+
+      <section id="full-code">
+        <p class="section-kicker">COMPLETE SAMPLE</p>
+        <h2>処理全体のサンプル</h2>
+        <p>参照設定が不要な<code>CreateObject</code>を使った例です。1行目を見出し、2行目からデータが始まる想定にしています。</p>
+        <div class="code-block large"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>Option Explicit
+
+Sub AggregateWithDictionary()
+
+    Dim wsSource As Worksheet
+    Dim wsOutput As Worksheet
+    Dim dict As Object
+    Dim lastRow As Long
+    Dim i As Long
+    Dim key As String
+    Dim outputRow As Long
+    Dim item As Variant
+    Dim parts As Variant
+
+    Set wsSource = ThisWorkbook.Worksheets("元データ")
+    Set wsOutput = ThisWorkbook.Worksheets("集計結果")
+    Set dict = CreateObject("Scripting.Dictionary")
+
+    <span class="code-comment">'A列を基準に最終行を取得</span>
+    lastRow = wsSource.Cells(wsSource.Rows.Count, "A") _
+                      .End(xlUp).Row
+
+    With wsSource
+
+        For i = 2 To lastRow
+
+            <span class="code-comment">'A列とC列が両方空白の行は集計しない</span>
+            If Len(.Cells(i, "A").Value) &gt; 0 Or _
+               Len(.Cells(i, "C").Value) &gt; 0 Then
+
+                <span class="code-comment">'F列が数値の行だけを集計</span>
+                If IsNumeric(.Cells(i, "F").Value) Then
+
+                    key = CStr(.Cells(i, "A").Value) &amp; vbTab &amp; _
+                          CStr(.Cells(i, "C").Value)
+
+                    If dict.Exists(key) Then
+                        dict(key) = dict(key) + _
+                                    CDbl(.Cells(i, "F").Value)
+                    Else
+                        dict.Add key, _
+                                 CDbl(.Cells(i, "F").Value)
+                    End If
+
+                End If
+            End If
+
+        Next i
+
+    End With
+
+    <span class="code-comment">'以前の集計結果を消す（集計専用シートを想定）</span>
+    wsOutput.Range("A2:C" &amp; wsOutput.Rows.Count) _
+            .ClearContents
+
+    <span class="code-comment">'Dictionaryの内容をA列・B列・C列へ書き出す</span>
+    outputRow = 2
+
+    For Each item In dict.Keys
+
+        parts = Split(CStr(item), vbTab)
+
+        wsOutput.Cells(outputRow, "A").Value = parts(0)
+        wsOutput.Cells(outputRow, "B").Value = parts(1)
+        wsOutput.Cells(outputRow, "C").Value = dict(item)
+
+        outputRow = outputRow + 1
+
+    Next item
+
+End Sub</code></pre></div>
+        <div class="note"><span class="note-icon">i</span><p>変数は多く見えますが、それぞれ「元シート」「出力先」「最終行」「キー」「出力行」など役割が異なります。名前を役割に合わせておくと、処理の流れを追いやすくなります。</p></div>
+      </section>
+
+      <section id="points">
+        <p class="section-kicker">CHECK POINTS</p>
+        <h2>使う前に確認しておきたい点</h2>
+        <ul class="summary-list">
+          <li>最終行の基準には、途中で空白にならない列を選ぶ</li>
+          <li>F列に文字が混ざる可能性がある場合は、<code>IsNumeric</code>で確認する</li>
+          <li><code>vbTab</code>を含むデータを扱う場合は、別の区切り方法を検討する</li>
+          <li>英字の大文字・小文字を同じものとして扱うなら、追加前に<code>dict.CompareMode = vbTextCompare</code>を設定する</li>
+          <li>Dictionaryから出力される順序に頼らず、必要なら出力後に並べ替える</li>
+        </ul>
+        <div class="warning"><strong>出力先の消去範囲</strong><p>サンプルでは集計専用シートを前提にA～C列を消去します。ほかのデータがある場合は、必要な列だけを消すように変更してください。</p></div>
+      </section>
+
+      <section id="summary">
+        <p class="section-kicker">SUMMARY</p>
+        <h2>Dictionaryは、順不同の重複集計をシンプルにする</h2>
+        <p>最初にコードを見ると少しハードルが高く感じますが、中心になる考え方は「同じキーがあれば足す、なければ新しく登録する」だけです。</p>
+        <ul class="summary-list">
+          <li>For～Nextで元データを一行ずつ確認する</li>
+          <li>A列とC列を連結し、複数項目を一つのキーとして扱う</li>
+          <li>同じキーのF列をDictionary内で加算する</li>
+          <li>最後に重複のない結果を別シートへ書き出す</li>
+        </ul>
+        <p>実際に一度動かしてみると、複数条件の集計でも構造はそれほど複雑ではありません。重複データをまとめる処理が必要になったとき、ぜひ候補にしたい方法です。</p>
+      </section>
+
+      <h3>VBA・Excel自動化の記事</h3>
+      <div class="related-articles">
+        <a class="next-article" href="autofilter-range.html">
+          <strong>AutoFilterで範囲を明示する理由</strong><span aria-hidden="true">→</span>
+        </a>
+        <a class="next-article" href="do-while-exit-condition.html">
+          <strong>Do Whileが終わらない原因と終了条件</strong><span aria-hidden="true">→</span>
+        </a>  
+        <a class="next-article" href="division-by-zero-error-11.html">
+          <strong>VBAの実行時エラー11「0で除算しました」の原因と対処</strong><span aria-hidden="true">→</span>
+        </a> 
+      </div>
+      <footer class="article-footer">
+        <img class="brand-mark" src="../assets/umbra-mark.svg" alt="">
+        <div><strong>Umbra Lab</strong><p>見えにくい仕組みを、実例から照らす技術ノート。</p></div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../script.js"></script>
+</body>
+</html>

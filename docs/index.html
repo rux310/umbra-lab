@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Umbra Lab | 実務から解き明かす技術ノート</title>
+  <meta name="description" content="VBA、Excel、Power BIなど、現場で実際につまずいた技術の仕組みと解決策を整理する技術ノートです。">
+  <meta name="theme-color" content="#0d0e14">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="home-page">
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Umbra Lab トップへ">
+      <img class="brand-mark" src="assets/umbra-mark.svg" alt="">
+      <span>UMBRA <strong>LAB</strong></span>
+    </a>
+    <span class="section-name">TECHNICAL NOTES</span>
+  </header>
+
+  <main class="home-shell">
+    <section class="home-hero">
+      <div class="hero-copy">
+        <p class="section-kicker">SHADOW / STRUCTURE / HIDDEN LAYERS</p>
+        <h1>見えにくい仕組みを、<br>実例から解き明かす。</h1>
+        <p>現場で実際につまずいたところから出発し、VBAやExcelなどの仕組みと解決策を、自分で再利用できる形に整理します。</p>
+      </div>
+      <div class="hero-symbol" aria-hidden="true">
+        <img src="assets/umbra-mark.svg" alt="">
+      </div>
+    </section>
+
+    <section class="article-index" aria-labelledby="notes-title">
+      <div class="index-heading">
+        <p class="section-kicker">NOTES</p>
+        <h2 id="notes-title">実務から生まれた技術ノート</h2>
+        <p>完成したコードそのものではなく、何につまずき、どう考えて解決したかを残しています。</p>
+      </div>
+
+      <div class="article-grid">
+        <a class="article-card" href="articles/powershell-vba-excel-disconnected.html">
+          <div class="card-meta"><span>VBA / Excel</span><time datetime="2026-09-17">2026.09.17</time></div>
+          <h3>PowerShellからVBAを実行するとExcelが切断される原因</h3>
+          <p>Workbook.CloseとApplication.Quitを誰が実行するのか、役割を整理します。</p>
+          <span class="card-link">記事を読む <span aria-hidden="true">→</span></span>
+        </a>
+
+        <a class="article-card" href="articles/division-by-zero-error-11.html">
+          <div class="card-meta"><span>VBA / Excel</span><time datetime="2026-09-16">2026.09.16</time></div>
+          <h3>VBAの実行時エラー11「0で除算しました」の原因と対処</h3>
+          <p>開始番号・終了番号の検索失敗によって分母が0になった例から、確認する順番を整理します。</p>
+          <span class="card-link">記事を読む <span aria-hidden="true">→</span></span>
+        </a>
+
+        <a class="article-card" href="articles/do-while-exit-condition.html">
+          <div class="card-meta"><span>VBA</span><time datetime="2026-09-14">2026.09.14</time></div>
+          <h3>Do Whileが終わらない原因と終了条件</h3>
+          <p>空白セルまで繰り返す処理を例に、条件の読み方と無限ループを防ぐ仕組みを整理します。</p>
+          <span class="card-link">記事を読む <span aria-hidden="true">→</span></span>
+        </a>
+
+        <a class="article-card" href="articles/dictionary-multiple-keys.html">
+          <div class="card-meta"><span>VBA</span><time datetime="2026-09-13">2026.09.13</time></div>
+          <h3>Dictionaryで複数項目の重複をまとめて集計する</h3>
+          <p>A列とC列の組み合わせを一つのキーにして、離れた場所にある同じ項目のF列を合計します。</p>
+          <span class="card-link">記事を読む <span aria-hidden="true">→</span></span>
+        </a>
+
+        <a class="article-card" href="articles/autofilter-range.html">
+          <div class="card-meta"><span>VBA / Excel</span><time datetime="2026-09-12">2026.09.12</time></div>
+          <h3>AutoFilterで範囲を明示する理由</h3>
+          <p>空白行を含む変則的なシートで、フィルター範囲の自動認識が想定とずれた実例を整理します。</p>
+          <span class="card-link">記事を読む <span aria-hidden="true">→</span></span>
+        </a>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <img class="brand-mark" src="assets/umbra-mark.svg" alt="">
+    <div><strong>Umbra Lab</strong><p>見えにくい仕組みを、実例から照らす技術ノート。</p></div>
+  </footer>
+</body>
+</html>

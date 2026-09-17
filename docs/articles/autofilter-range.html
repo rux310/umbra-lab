@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excel VBAのAutoFilterで範囲を明示する理由 | Umbra Lab</title>
+  <meta name="description" content="空白行を含む変則的なExcelシートで、AutoFilterの自動範囲認識が想定とずれた実例と、範囲を明示して安定させる方法を解説します。">
+  <meta name="theme-color" content="#0d0e14">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="Umbra Lab トップへ">
+      <img class="brand-mark" src="../assets/umbra-mark.svg" alt="">
+      <span>UMBRA <strong>LAB</strong></span>
+    </a>
+    <span class="section-name">VBA / Excel</span>
+  </header>
+
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+
+  <main id="top" class="page-shell">
+    <aside class="toc" aria-label="この記事の目次">
+      <p class="toc-label">CONTENTS</p>
+      <nav>
+        <a href="#overview">今回の処理</a>
+        <a href="#sheet">変則的なシート</a>
+        <a href="#problem">起きた問題</a>
+        <a href="#solution">範囲を明示する</a>
+        <a href="#visible">表示行を取得する</a>
+        <a href="#error">エラー無視を戻す</a>
+        <a href="#full-code">全体コード</a>
+        <a href="#summary">まとめ</a>
+      </nav>
+    </aside>
+
+    <article class="article">
+      <nav class="breadcrumb" aria-label="パンくずリスト"><a href="../index.html">トップ</a><span>/</span><span>VBA</span></nav>
+      <header class="article-header">
+        <div class="eyebrow"><span>VBA</span><span>実務メモ</span></div>
+        <h1>Excel VBAのAutoFilterで<br>範囲を明示する理由</h1>
+        <p class="lead">空白行を含む変則的なシートで、単一セルに任せた範囲認識が想定とずれた。実際の失敗から、安定したフィルター処理を整理します。</p>
+        <div class="article-meta"><span>2026.09.12</span><span>読了目安 7分</span></div>
+      </header>
+
+      <section id="overview">
+        <p>Excel VBAで表を処理するとき、データを別の場所へ転記するより、必要な行だけをフィルタリングした方が簡単な場合があります。</p>
+        <p>今回実現したかったのは、対象ブックとシートを直接編集し、そのまま印刷する次の処理です。</p>
+        <ol class="process-list">
+          <li><span>01</span><div><strong>H列で絞り込む</strong><small>指定した値に一致する行だけを表示</small></div></li>
+          <li><span>02</span><div><strong>行全体をグレーにする</strong><small>表示されているデータ行だけを処理</small></div></li>
+          <li><span>03</span><div><strong>絞り込みを解除する</strong><small>次のフィルターへ進む前に全件表示</small></div></li>
+          <li><span>04</span><div><strong>F列で絞り込んで印刷する</strong><small>確認中は印刷プレビューを使用</small></div></li>
+        </ol>
+        <div class="note"><span class="note-icon">i</span><p>実際のブック名・シート名・検索値は、すべてサンプル用の名称に置き換えています。</p></div>
+      </section>
+
+      <section id="sheet">
+        <p class="section-kicker">SHEET STRUCTURE</p>
+        <h2>今回のシートは少し変則的</h2>
+        <p>3行目に見出しがあり、4～6行目が空白、7行目からデータが始まる構成でした。データの直上にフィルターを置くため、6行目をAutoFilterの基準行として使います。</p>
+        <div class="sheet-card">
+          <div class="sheet-toolbar">
+            <div class="sheet-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+            <strong>サンプルシート</strong><span class="sheet-hint"></span>
+          </div>
+          <div class="sheet-scroll">
+            <table class="excel-sheet" aria-label="空白行を含むExcelシートの例">
+              <thead><tr><th class="corner"></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th></tr></thead>
+              <tbody id="demoBody">
+                <tr class="source-header" data-fixed><th>3</th><td>管理No.</td><td>日付</td><td>工程</td><td>内容</td><td>担当</td><td>区分</td><td>備考</td><td>状態</td></tr>
+                <tr class="blank-row" data-fixed><th>4</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                <tr class="blank-row" data-fixed><th>5</th><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                <tr class="filter-row" data-fixed><th>6</th><td><span class="filter-cell">▼</span></td><td><span class="filter-cell">▼</span></td><td><span class="filter-cell">▼</span></td><td><span class="filter-cell">▼</span></td><td><span class="filter-cell">▼</span></td><td><span class="filter-cell">▼</span></td><td><span class="filter-cell">▼</span></td><td><span class="filter-cell">▼</span></td></tr>
+                <tr data-row="7" data-f="A" data-h="対象値1"><th>7</th><td>001</td><td>9/1</td><td>組立</td><td>点検</td><td>佐藤</td><td>A</td><td>―</td><td>対象値1</td></tr>
+                <tr data-row="8" data-f="B" data-h="完了"><th>8</th><td>002</td><td>9/2</td><td>検査</td><td>確認</td><td>鈴木</td><td>B</td><td>再確認</td><td>完了</td></tr>
+                <tr data-row="9" data-f="B" data-h="対象値1"><th>9</th><td>003</td><td>9/3</td><td>加工</td><td>交換</td><td>高橋</td><td>B</td><td>―</td><td>対象値1</td></tr>
+                <tr data-row="10" data-f="A" data-h="確認中"><th>10</th><td>004</td><td>9/4</td><td>組立</td><td>調整</td><td>田中</td><td>A</td><td>継続</td><td>確認中</td></tr>
+                <tr data-row="11" data-f="B" data-h="完了"><th>11</th><td>005</td><td>9/5</td><td>検査</td><td>記録</td><td>伊藤</td><td>B</td><td>―</td><td>完了</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="demo-controls" role="group" aria-label="フィルター動作の再現">
+            <button type="button" class="demo-button is-active" data-demo="all">元のシート</button>
+            <button type="button" class="demo-button" data-demo="h">① H列で絞り込み＋着色</button>
+            <button type="button" class="demo-button" data-demo="f">② 解除後、F列で絞り込み</button>
+          </div>
+          <p id="demoCaption" class="demo-caption" aria-live="polite">4～6行目に空白があり、7行目からデータが始まります。</p>
+        </div>
+      </section>
+
+      <section id="problem">
+        <p class="section-kicker">THE PROBLEM</p>
+        <h2>単一セルだけを指定していた</h2>
+        <p>当初は、6行目の左端セルだけを指定してAutoFilterを実行していました。</p>
+        <div class="code-block"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>ws.Range("A6").AutoFilter</code></pre></div>
+        <p>単一セルだけを指定すると、AutoFilterを適用する表の範囲はExcel側の自動認識に委ねられます。</p>
+        <p>今回のように空白行を含む特殊な構成では、自動認識された範囲が後続の処理と一致せず、絞り込んだ行だけではなく、表全体がグレーになる現象が発生しました。</p>
+        <blockquote><p>原因は検索条件ではなく、「どこからどこまでを表として扱うか」が曖昧だったこと。</p></blockquote>
+      </section>
+
+      <section id="solution">
+        <p class="section-kicker">THE FIX</p>
+        <h2>A6からH列の最終行までを指定する</h2>
+        <p>対策はシンプルです。Excelに範囲を推測させず、フィルターを適用する長方形の範囲をコードで明示します。</p>
+        <div class="code-block"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+
+ws.Range("A6:H" &amp; lastRow).AutoFilter _
+    Field:=8, _
+    Criteria1:="対象値1"</code></pre></div>
+        <div class="explain-grid">
+          <div><code>A6:H</code><p>フィルターを置く6行目から、表の右端であるH列まで。</p></div>
+          <div><code>&amp; lastRow</code><p>固定の行番号ではなく、データが入力されている最終行まで。</p></div>
+          <div><code>Field:=8</code><p>A列から始まる範囲の8列目、つまりH列を対象にする。</p></div>
+          <div><code>Criteria1</code><p>絞り込みに使用する検索条件を指定する。</p></div>
+        </div>
+        <h3>最終行を取得する書き方</h3>
+        <div class="code-block compact"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row</code></pre></div>
+        <p>A列の一番下から上方向へ移動し、最初に値が見つかった行番号を取得しています。この例では、A列が必ず入力されることを前提にしています。</p>
+      </section>
+
+      <section id="visible">
+        <p class="section-kicker">VISIBLE ROWS</p>
+        <h2>表示されているデータ行だけを塗る</h2>
+        <p>実際のデータは7行目から始まるため、塗りつぶす範囲も素直に<code>A7:H最終行</code>と指定します。</p>
+        <div class="code-block"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>Set visibleRows = ws.Range("A7:H" &amp; lastRow) _
+    .SpecialCells(xlCellTypeVisible)
+
+visibleRows.EntireRow.Interior.Color = RGB(217, 217, 217)</code></pre></div>
+        <p><code>SpecialCells(xlCellTypeVisible)</code>で、フィルター後も表示されているセルだけを取得します。今回は<code>EntireRow</code>を付け、該当する行全体をグレーにしています。</p>
+        <div class="choice-row">
+          <div><strong>行全体を塗る</strong><code>visibleRows.EntireRow.Interior.Color</code></div>
+          <div><strong>A～H列だけを塗る</strong><code>visibleRows.Interior.Color</code></div>
+        </div>
+      </section>
+
+      <section id="error">
+        <p class="section-kicker">ERROR HANDLING</p>
+        <h2><code>On Error GoTo 0</code>は「0へ飛ぶ」ではない</h2>
+        <p>検索条件に一致する行がないと、<code>SpecialCells</code>がエラーになることがあります。その箇所だけ一時的にエラーを無視します。</p>
+        <div class="code-block"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code><span class="code-comment">'該当行がない場合のエラーだけ一時的に無視</span>
+On Error Resume Next
+
+Set visibleRows = ws.Range("A7:H" &amp; lastRow) _
+    .SpecialCells(xlCellTypeVisible)
+
+<span class="code-comment">'通常のエラー処理に戻す</span>
+On Error GoTo 0</code></pre></div>
+        <p><code>On Error GoTo 0</code>は、0番の行へ移動する命令でも、処理を終了する命令でもありません。<code>On Error Resume Next</code>によるエラー無視を終了し、通常の状態に戻す命令です。</p>
+      </section>
+
+      <section id="full-code">
+        <p class="section-kicker">COMPLETE SAMPLE</p>
+        <h2>処理全体のサンプル</h2>
+        <p>処理の流れを追いやすくするため、変数は最終行と表示行の2つに絞っています。</p>
+        <div class="code-block large"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>Option Explicit
+
+Sub FilterColorAndPrint()
+
+    Dim lastRow As Long
+    Dim visibleRows As Range
+
+    With ThisWorkbook.Worksheets("対象シート")
+
+        <span class="code-comment">'A列を基準に最終行を取得</span>
+        lastRow = .Cells(.Rows.Count, "A").End(xlUp).Row
+
+        <span class="code-comment">'H列を対象値1で絞り込む</span>
+        .Range("A6:H" &amp; lastRow).AutoFilter _
+            Field:=8, _
+            Criteria1:="対象値1"
+
+        <span class="code-comment">'7行目以降の表示行を取得</span>
+        On Error Resume Next
+        Set visibleRows = .Range("A7:H" &amp; lastRow) _
+            .SpecialCells(xlCellTypeVisible)
+        On Error GoTo 0
+
+        <span class="code-comment">'該当した行をグレーにする</span>
+        If Not visibleRows Is Nothing Then
+            visibleRows.EntireRow.Interior.Color = _
+                RGB(217, 217, 217)
+        End If
+
+        <span class="code-comment">'絞り込みを解除</span>
+        If .FilterMode Then
+            .ShowAllData
+        End If
+
+        <span class="code-comment">'F列を対象値2で絞り込む</span>
+        .Range("A6:H" &amp; lastRow).AutoFilter _
+            Field:=6, _
+            Criteria1:="対象値2"
+
+        <span class="code-comment">'動作確認時は印刷プレビューを使用</span>
+        .PrintPreview
+
+    End With
+
+End Sub</code></pre></div>
+        <div class="warning"><strong>印刷前の確認</strong><p>動作確認中は<code>PrintOut</code>ではなく<code>PrintPreview</code>を使うと、意図しない印刷を防げます。</p></div>
+      </section>
+
+      <section id="summary">
+        <p class="section-kicker">SUMMARY</p>
+        <h2>範囲を明示すれば、変則的な表にも対応できる</h2>
+        <ul class="summary-list">
+          <li>単一セルの指定では、表の範囲認識をExcelに委ねることになる</li>
+          <li>空白行を含むシートでは、開始行・終了行・対象列を明示する</li>
+          <li>実データが7行目からなら、処理範囲も<code>A7:H最終行</code>と素直に書く</li>
+          <li>該当行が0件の場合を考慮し、エラー無視は必要な箇所だけに限定する</li>
+          <li>AutoFilterは、着色・印刷・集計・転記にも応用できる</li>
+        </ul>
+        <p>現場のExcelは、必ずしも整った表ばかりではありません。だからこそ、コード側で対象範囲を明確にしておくことが、安定した処理につながります。</p>
+      </section>
+
+      <h3>VBA・Excel自動化の記事</h3>
+      <div class="related-articles">
+        <a class="next-article" href="dictionary-multiple-keys.html">
+          <strong>Dictionaryで複数項目を集計する</strong><span aria-hidden="true">→</span>
+        </a>
+        <a class="next-article" href="do-while-exit-condition.html">
+          <strong>Do Whileが終わらない原因と終了条件</strong><span aria-hidden="true">→</span>
+        </a>  
+        <a class="next-article" href="division-by-zero-error-11.html">
+          <strong>VBAの実行時エラー11「0で除算しました」の原因と対処</strong><span aria-hidden="true">→</span>
+        </a> 
+      </div>      
+      <footer class="article-footer">
+        <img class="brand-mark" src="../assets/umbra-mark.svg" alt="">
+        <div><strong>Umbra Lab</strong><p>見えにくい仕組みを、実例から照らす技術ノート。</p></div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../script.js"></script>
+</body>
+</html>

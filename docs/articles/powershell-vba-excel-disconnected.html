@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PowerShellからVBAを実行するとExcelが切断される原因 | Umbra Lab</title>
+  <meta name="description" content="PowerShellからExcel VBAを連続実行したときに0x80010108 RPC_E_DISCONNECTEDが発生する原因を、Workbook.CloseとApplication.Quitの役割から解説します。">
+  <meta name="theme-color" content="#0d0e14">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="Umbra Lab トップへ">
+      <img class="brand-mark" src="../assets/umbra-mark.svg" alt="">
+      <span>UMBRA <strong>LAB</strong></span>
+    </a>
+    <span class="section-name">PowerShell / Excel VBA</span>
+  </header>
+
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+
+  <main id="top" class="page-shell">
+    <aside class="toc" aria-label="この記事の目次">
+      <p class="toc-label">CONTENTS</p>
+      <nav>
+        <a href="#overview">起きたエラー</a>
+        <a href="#sequence">処理の流れ</a>
+        <a href="#cause">切断された原因</a>
+        <a href="#ownership">終了処理を一方へ寄せる</a>
+        <a href="#sample">最小構成の修正版</a>
+        <a href="#summary">まとめ</a>
+      </nav>
+    </aside>
+
+    <article class="article">
+      <nav class="breadcrumb" aria-label="パンくずリスト"><a href="../index.html">トップ</a><span>/</span><span>PowerShell</span></nav>
+      <header class="article-header">
+        <div class="eyebrow"><span>PowerShell</span><span>Excel VBA</span></div>
+        <h1>PowerShellからVBAを実行すると<br>Excelが切断される原因</h1>
+        <p class="lead">複数のExcelマクロを順番に実行していたところ、終了処理でExcelとの接続が切れました。Workbook.CloseとApplication.Quitを誰が実行するのか、役割を整理します。</p>
+        <div class="article-meta"><span>2026.09.16</span><span>読了目安 7分</span></div>
+      </header>
+
+      <section id="overview">
+        <p>PowerShellからExcelを操作し、複数のマクロブックと月別ファイルを順番に処理していたとき、次のエラーが発生しました。</p>
+        <div class="code-block code-warning"><div class="code-head"><span>ERROR</span><span class="warning-badge">0x80010108</span></div><pre><code>The object invoked has disconnected from its clients.
+
+HRESULT: 0x80010108
+RPC_E_DISCONNECTED</code></pre></div>
+        <p>日本語では「呼び出されたオブジェクトがクライアントから切断されました」と表示されます。変数は残っていても、その変数が参照していたExcelはすでに終了しており、PowerShellから操作できない状態です。</p>
+        <div class="warning"><strong>連続実行そのものが原因とは限らない</strong><p>今回の中心は、VBAとPowerShellの両方にブックとExcelの終了処理があったことです。処理回数よりも、Excelを閉じる担当が重複していた点を確認します。</p></div>
+      </section>
+
+      <section id="sequence">
+        <p class="section-kicker">AUTOMATION FLOW</p>
+        <h2>複数の月別ファイルを順番に処理していた</h2>
+        <p>当時のPowerShellは、計画系のファイルでマクロを実行した後、別フォルダにある同名・別内容の月別ファイルを順番に開く構成でした。それぞれについて3つのマクロを実行し、変更を保存してから次のファイルへ進みます。</p>
+        <ol class="process-list">
+          <li><span>01</span><div><strong>Excelを起動</strong><small>PowerShellがExcel.Applicationを作成する。</small></div></li>
+          <li><span>02</span><div><strong>対象ブックを開く</strong><small>フォルダごとに対応する月別ファイルを開く。</small></div></li>
+          <li><span>03</span><div><strong>マクロを連続実行</strong><small>Application.Runで3つの処理を順番に呼び出す。</small></div></li>
+          <li><span>04</span><div><strong>保存して閉じる</strong><small>各ブックの処理後、次の対象へ移動する。</small></div></li>
+        </ol>
+        <p>ところが、VBA側にも<code>Workbook.Close</code>と<code>Application.Quit</code>があり、PowerShell側にも<code>Close()</code>と<code>Quit()</code>がありました。</p>
+      </section>
+
+      <section id="cause">
+        <p class="section-kicker">DISCONNECTED OBJECT</p>
+        <h2>Application.Quitの後もPowerShellは処理を続ける</h2>
+        <p><code>Workbook.Close</code>は指定したブックを閉じます。一方、<code>Application.Quit</code>はExcelアプリケーションを終了します。</p>
+        <p>PowerShellが作成したExcelに対して、実行中のVBAが<code>Application.Quit</code>を呼ぶと、PowerShellが保持している<code>$excel</code>や<code>$workbook</code>は有効な接続先を失います。その後で保存や終了を実行すると、切断エラーになります。</p>
+        <div class="code-block code-warning"><div class="code-head"><span>VBA / 問題のある終了処理</span><span class="warning-badge">実行注意</span></div><pre><code>Sub ExecuteMain()
+
+    On Error GoTo ErrorHandler
+
+    '集計や転記などの処理
+
+    ThisWorkbook.Close SaveChanges:=True
+    Application.Quit
+    Exit Sub
+
+ErrorHandler:
+    Application.Quit
+
+End Sub</code></pre></div>
+        <p>正常終了でもエラー終了でも、VBAがExcel全体を閉じています。この後にPowerShellが<code>$workbook.Save()</code>や<code>$excel.Quit()</code>を呼ぶと、すでに終了したCOMオブジェクトへ再びアクセスすることになります。</p>
+        <blockquote><p>Excelを閉じる処理は、VBAとPowerShellのどちらか一方だけが担当する。</p></blockquote>
+      </section>
+
+      <section id="ownership">
+        <p class="section-kicker">ONE OWNER</p>
+        <h2>PowerShellが全体を管理する場合の役割分担</h2>
+        <p>複数ブックをPowerShellから順番に処理するなら、Excelの開始から終了までをPowerShellへ統一すると流れが分かりやすくなります。</p>
+        <div class="comparison-grid">
+          <div><span class="comparison-label">VBA</span><strong>ブック内の処理を担当</strong><p>集計・転記・書式変更を行い、完了したらPowerShellへ制御を戻します。</p></div>
+          <div><span class="comparison-label">PowerShell</span><strong>Excelの寿命を管理</strong><p>ブックを開く、マクロを呼ぶ、保存する、閉じる、最後にExcelを終了します。</p></div>
+        </div>
+        <ul class="summary-list">
+          <li>VBAから<code>Application.Quit</code>を呼ばない</li>
+          <li>VBAとPowerShellで同じブックを二重に<code>Close</code>しない</li>
+          <li>エラー時も、Excelの終了はPowerShellの<code>finally</code>で行う</li>
+          <li><code>Quit()</code>はすべてのブック処理が終わった後に一度だけ実行する</li>
+        </ul>
+      </section>
+
+      <section id="sample">
+        <p class="section-kicker">MINIMUM SAMPLE</p>
+        <h2>VBAは処理だけ、PowerShellが閉じる</h2>
+        <p>VBAでは、ブックやExcelを閉じず、処理に失敗した場合はエラーを呼び出し元へ返します。</p>
+        <div class="code-block compact"><div class="code-head"><span>VBA</span><button type="button" class="copy-button">コピー</button></div><pre><code>Option Explicit
+
+Public Sub ExecuteMain()
+
+    Dim errorNumber As Long
+    Dim errorDescription As String
+
+    On Error GoTo ErrorHandler
+
+    '集計や転記など、ブック内の処理だけを行う
+
+    Exit Sub
+
+ErrorHandler:
+    errorNumber = Err.Number
+    errorDescription = Err.Description
+
+    On Error GoTo 0
+    Err.Raise errorNumber, "ExecuteMain", errorDescription
+
+End Sub</code></pre></div>
+        <p>PowerShell側は、マクロが正常終了した場合に保存し、<code>finally</code>でブックとExcelを閉じます。次は役割分担を示すための最小構成です。</p>
+        <div class="code-block large"><div class="code-head"><span>PowerShell / 構成例</span><button type="button" class="copy-button">コピー</button></div><pre><code>$excel = $null
+$workbook = $null
+
+try {
+    $excel = New-Object -ComObject Excel.Application
+    $excel.Visible = $false
+    $excel.DisplayAlerts = $false
+
+    $workbook = $excel.Workbooks.Open($bookPath)
+
+    $macroName = "'$($workbook.Name)'!ExecuteMain"
+    $excel.Run($macroName)
+
+    $workbook.Save()
+}
+finally {
+    if ($null -ne $workbook) {
+        $workbook.Close($false)
+        $workbook = $null
+    }
+
+    if ($null -ne $excel) {
+        $excel.Quit()
+        $excel = $null
+    }
+}</code></pre></div>
+        <div class="note"><span class="note-icon">i</span><p>複数ブックを処理するときは、ブックのOpen・Run・Save・Closeをループ内で行い、Excelの<code>Quit()</code>だけをループの外へ置きます。実際のパスやマクロ名は環境に合わせて変更してください。</p></div>
+      </section>
+
+      <section id="summary">
+        <p class="section-kicker">SUMMARY</p>
+        <h2>終了処理を重ねず、Excelの管理者を決める</h2>
+        <ul class="summary-list">
+          <li><code>Workbook.Close</code>はブック、<code>Application.Quit</code>はExcel全体を終了する</li>
+          <li>VBAがExcelを終了すると、PowerShell側のCOM参照は使えなくなる</li>
+          <li>終了済みのオブジェクトへ再度アクセスすると、<code>RPC_E_DISCONNECTED</code>が発生する</li>
+          <li>PowerShellが連続実行を管理するなら、VBAはブック内の処理だけにする</li>
+          <li>保存・Close・Quitの担当をPowerShellへまとめ、Quitは最後に一度だけ実行する</li>
+        </ul>
+        <p>今回のように、最初のVBAエラーをきっかけにエラー処理が<code>Application.Quit</code>を実行すると、PowerShell側では別の切断エラーとして見えることがあります。最初のエラーと終了時のエラーを分けて考えることが、原因の特定につながります。</p>
+        <h3>MicroSoft公式</h3>
+        <p><a href="https://learn.microsoft.com/en-us/office/vba/api/excel.application.quit" target="_blank" rel="noopener noreferrer">Microsoft Learn：Application.Quit method</a><br><a href="https://learn.microsoft.com/en-us/office/vba/api/excel.workbook.close" target="_blank" rel="noopener noreferrer">Microsoft Learn：Workbook.Close method</a><br><a href="https://learn.microsoft.com/ja-jp/powershell/scripting/samples/creating-.net-and-com-objects--new-object-" target="_blank" rel="noopener noreferrer">Microsoft Learn：PowerShellでCOMオブジェクトを操作する</a></p>
+      </section>
+
+      <h3>VBA・Excel自動化の記事</h3>
+      <div class="related-articles">
+        <a class="next-article" href="do-while-exit-condition.html">
+          <strong>Do Whileが終わらない原因と終了条件</strong><span aria-hidden="true">→</span>
+        </a>
+        <a class="next-article" href="autofilter-range.html">
+          <strong>AutoFilterで範囲を明示する理由</strong><span aria-hidden="true">→</span>
+        </a>  
+        <a class="next-article" href="dictionary-multiple-keys.html">
+          <strong>Dictionaryで複数項目を集計する</strong><span aria-hidden="true">→</span>
+        </a> 
+      </div>
+      <footer class="article-footer">
+        <img class="brand-mark" src="../assets/umbra-mark.svg" alt="">
+        <div><strong>Umbra Lab</strong><p>見えにくい仕組みを、実例から照らす技術ノート。</p></div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../script.js"></script>
+</body>
+</html>

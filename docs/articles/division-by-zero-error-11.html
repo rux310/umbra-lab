@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VBAの実行時エラー11「0で除算しました」の原因と対処 | Umbra Lab</title>
+  <meta name="description" content="VBAの実行時エラー11「0で除算しました」を、開始番号・終了番号の検索失敗と、別ファイルの生産数が0になる実務例から解説します。">
+  <meta name="theme-color" content="#0d0e14">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../index.html" aria-label="Umbra Lab トップへ">
+      <img class="brand-mark" src="../assets/umbra-mark.svg" alt="">
+      <span>UMBRA <strong>LAB</strong></span>
+    </a>
+    <span class="section-name">VBA / Error 11</span>
+  </header>
+
+  <div class="reading-progress" aria-hidden="true"><span></span></div>
+
+  <main id="top" class="page-shell">
+    <aside class="toc" aria-label="この記事の目次">
+      <p class="toc-label">CONTENTS</p>
+      <nav>
+        <a href="#overview">エラーが起きた状況</a>
+        <a href="#hidden-cause">割り算の前にある原因</a>
+        <a href="#bad-example">問題のある例</a>
+        <a href="#safe-code">検索結果を確認するコード</a>
+        <a href="#production">生産数が0になる場合</a>
+        <a href="#summary">まとめ</a>
+      </nav>
+    </aside>
+
+    <article class="article">
+      <nav class="breadcrumb" aria-label="パンくずリスト"><a href="../index.html">トップ</a><span>/</span><span>VBA</span></nav>
+      <header class="article-header">
+        <div class="eyebrow"><span>VBA</span><span>実行時エラー</span></div>
+        <h1>実行時エラー11<br>「0で除算しました」の原因と対処</h1>
+        <p class="lead">割り算の直前だけを確認しても、根本原因が見つからないことがあります。開始番号・終了番号の検索失敗によって分母が0になった例から、確認する順番を整理します。</p>
+        <div class="article-meta"><span>2026.09.16</span><span>読了目安 6分</span></div>
+      </header>
+
+      <section id="overview">
+        <p>このエラーを調べることになったのは、PowerShellから複数のExcelマクロを順番に実行している途中で、VBAの実行時エラー11「0で除算しました」が発生したためです。</p>
+        <p>処理では、開始番号から終了番号までの対象件数を求め、その件数を分母にして割合を計算していました。ところが、指定した番号がデータ内に見つからず、検索結果をもとに計算した分母が0になっていた可能性がありました。</p>
+        <div class="warning"><strong>エラーが出た割り算の行だけが原因とは限らない</strong><p>0で割った行は、異常が表面化した場所です。実際の原因は、その前に行った番号検索やデータ取得の失敗にある場合があります。</p></div>
+      </section>
+
+      <section id="hidden-cause">
+        <p class="section-kicker">BEFORE DIVISION</p>
+        <h2>分母が0になるまでを遡って確認する</h2>
+        <p>MicrosoftのVBAリファレンスでも、実行時エラー11は除数が0のときに発生し、割り算より前に行った変数の処理も確認するよう案内されています。</p>
+        <ol class="process-list">
+          <li><span>01</span><div><strong>開始番号を検索</strong><small>見つからない場合、開始位置を取得できない。</small></div></li>
+          <li><span>02</span><div><strong>終了番号を検索</strong><small>検索失敗を確認せず、そのまま処理が進む。</small></div></li>
+          <li><span>03</span><div><strong>対象件数を計算</strong><small>不正な検索結果から、分母になる件数が0になる。</small></div></li>
+          <li><span>04</span><div><strong>割合を計算</strong><small>この段階で初めて「0で除算しました」と表示される。</small></div></li>
+        </ol>
+        <blockquote><p>割り算を直すのではなく、分母を作った検索処理まで戻って確認する。</p></blockquote>
+      </section>
+
+      <section id="bad-example">
+        <p class="section-kicker">HIDDEN ERROR</p>
+        <h2>検索失敗を見逃す問題のある例</h2>
+        <p><code>Find</code>で番号を検索した結果、対象がなければ<code>Nothing</code>が返ります。そのとき件数を更新しないまま処理を続けると、初期値の0が分母に使われます。</p>
+        <div class="code-block code-warning"><div class="code-head"><span>VBA / 問題のある例</span><span class="warning-badge">実行注意</span></div><pre><code>Dim startCell As Range
+Dim endCell As Range
+Dim targetCount As Long
+Dim defectRate As Double
+
+Set startCell = targetRange.Find(What:=startNumber, LookAt:=xlWhole)
+Set endCell = targetRange.Find(What:=endNumber, LookAt:=xlWhole)
+
+If Not startCell Is Nothing And Not endCell Is Nothing Then
+    targetCount = endCell.Row - startCell.Row + 1
+End If
+
+<span class="code-comment">'targetCountが0なら実行時エラー11になる</span>
+defectRate = defectCount / targetCount</code></pre></div>
+        <p>この例では、開始番号と終了番号のどちらかが見つからないと<code>targetCount</code>が更新されず、初期値の0のままです。問題は割り算ではなく、検索できなかった時点で処理を終了しなかったことです。</p>
+      </section>
+
+      <section id="safe-code">
+        <p class="section-kicker">VALIDATE FIRST</p>
+        <h2>検索結果を確認してから計算する</h2>
+        <p>次の例では、A7～A10000から開始番号と終了番号を検索します。どちらかが見つからない場合は計算せず、確認対象をメッセージで知らせます。</p>
+        <div class="code-block large"><div class="code-head"><span>VBA / 安全な例</span><button type="button" class="copy-button">コピー</button></div><pre><code>Option Explicit
+
+Sub CalculateDefectRate()
+
+    Dim ws As Worksheet
+    Dim targetRange As Range
+    Dim startPosition As Variant
+    Dim endPosition As Variant
+    Dim targetCount As Long
+    Dim defectCount As Double
+
+    Set ws = ThisWorkbook.Worksheets("集計")
+    Set targetRange = ws.Range("A7:A10000")
+
+    startPosition = Application.Match( _
+                        ws.Range("B2").Value, targetRange, 0)
+    endPosition = Application.Match( _
+                        ws.Range("B3").Value, targetRange, 0)
+
+    If IsError(startPosition) Or IsError(endPosition) Then
+        ws.Range("B5").ClearContents
+        MsgBox "開始番号または終了番号が見つかりません。", _
+               vbExclamation
+        Exit Sub
+    End If
+
+    targetCount = CLng(endPosition) _
+                  - CLng(startPosition) + 1
+
+    If targetCount &lt;= 0 Then
+        ws.Range("B5").ClearContents
+        MsgBox "開始番号と終了番号の順序を確認してください。", _
+               vbExclamation
+        Exit Sub
+    End If
+
+    defectCount = CDbl(ws.Range("B4").Value)
+    ws.Range("B5").Value = defectCount / targetCount
+
+End Sub</code></pre></div>
+        <div class="explain-grid">
+          <div><code>Application.Match</code><p>見つからない場合はエラー値を返すため、<code>IsError</code>で判定できる。</p></div>
+          <div><code>+ 1</code><p>開始位置と終了位置を両方含めた件数として計算する。</p></div>
+          <div><code>targetCount &lt;= 0</code><p>0だけでなく、開始・終了の順序が逆の場合も計算を止める。</p></div>
+          <div><code>ClearContents</code><p>計算できないときに、前回の割合を結果欄へ残さない。</p></div>
+        </div>
+        <div class="note"><span class="note-icon">i</span><p>シート名、セル位置、検索範囲は例です。実際のブック構成に合わせて変更してください。</p></div>
+      </section>
+
+      <section id="production">
+        <p class="section-kicker">ANOTHER CASE</p>
+        <h2>別ファイルの生産数が0になる場合</h2>
+        <p>同じエラーは、不具合率を「不具合件数÷生産数」で求める処理でも発生します。月が替わった直後など、別のExcelファイルから取得する生産数がまだ更新されておらず、セルに数値の0が入っているケースです。</p>
+        <p>この場合、0を一律に割合0%へ置き換えると、「不具合なし」と「生産数未取得」を区別できなくなります。</p>
+        <div class="comparison-grid">
+          <div><span class="comparison-label">生産数 0 / 不具合 0</span><strong>計算しない</strong><p>未取得または生産実績なしとして、結果欄を空白にします。</p></div>
+          <div><span class="comparison-label">生産数 0 / 不具合あり</span><strong>異常として停止</strong><p>データの組合せに矛盾があるため、確認を促して処理を止めます。</p></div>
+        </div>
+        <div class="code-block compact"><div class="code-head"><span>VBA / 生産数を確認する例</span><button type="button" class="copy-button">コピー</button></div><pre><code>If productionCount = 0 Then
+
+    resultCell.ClearContents
+
+    If defectCount &gt; 0 Then
+        MsgBox "生産数が0ですが、不具合件数があります。", _
+               vbExclamation
+        Exit Sub
+    End If
+
+    <span class="code-comment">'生産数が取得できるまで計算しない</span>
+    Exit Sub
+
+End If
+
+resultCell.Value = defectCount / productionCount</code></pre></div>
+        <p>可能であれば、取得元ファイルの存在、対象月、更新日時も確認します。数値の0だけでは「本当に0」なのか「まだデータがない」のか判断できないためです。</p>
+      </section>
+
+      <section id="summary">
+        <p class="section-kicker">SUMMARY</p>
+        <h2>割る前に、分母が作られた過程を確認する</h2>
+        <ul class="summary-list">
+          <li>実行時エラー11は、分母が0の状態で割り算をしたときに発生する</li>
+          <li>開始番号・終了番号の検索失敗が、後の0除算として表面化することがある</li>
+          <li>検索結果が<code>Nothing</code>やエラー値でないか確認してから計算へ進む</li>
+          <li>検索結果、順序、件数を確認してから割合を計算する</li>
+          <li>業務データの0は、「未取得」「本当に0」「データ不整合」を分けて扱う</li>
+        </ul>
+        <p>割り算の直前に<code>If 分母 &lt;&gt; 0</code>を追加するだけでもエラーは避けられます。しかし、なぜ0になったのかを残したままでは、誤った集計結果につながります。検索やデータ取得の段階で止める方が、原因を見つけやすく安全です。</p>
+        <p><a href="https://learn.microsoft.com/en-us/office/vba/language/reference/user-interface-help/division-by-zero-error-11" target="_blank" rel="noopener noreferrer">Microsoft Learn：Division by zero（Error 11）</a></p>
+      </section>
+
+      <h3>VBA・Excel自動化の記事</h3>
+      <div class="related-articles">
+        <a class="next-article" href="do-while-exit-condition.html">
+          <strong>Do Whileが終わらない原因と終了条件</strong><span aria-hidden="true">→</span>
+        </a> 
+        <a class="next-article" href="dictionary-multiple-keys.html">
+          <strong>Dictionaryで複数項目を集計する</strong><span aria-hidden="true">→</span>
+        </a>
+        <a class="next-article" href="powershell-vba-excel-disconnected.html">
+          <strong>PowerShellからVBAを実行するとExcelが切断される原因</strong><span aria-hidden="true">→</span>
+        </a> 
+      </div>
+      <footer class="article-footer">
+        <img class="brand-mark" src="../assets/umbra-mark.svg" alt="">
+        <div><strong>Umbra Lab</strong><p>見えにくい仕組みを、実例から照らす技術ノート。</p></div>
+      </footer>
+    </article>
+  </main>
+
+  <script src="../script.js"></script>
+</body>
+</html>
