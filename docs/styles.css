@@ -726,3 +726,152 @@ a[target="_blank"]:hover {
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition: none !important; }
 }
+
+/* =========================================================
+   Umbra Lab: サイト情報ページ・フッター用
+   このファイルの内容を既存の docs/styles.css の末尾へ追記してください。
+   ========================================================= */
+
+.info-shell {
+  width: min(900px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: clamp(54px, 8vw, 88px) 0 100px;
+}
+
+.info-article { min-width: 0; }
+
+.info-hero {
+  padding: 18px 0 58px;
+}
+
+.info-hero h1 {
+  margin: 14px 0 22px;
+  font-size: clamp(2.15rem, 5vw, 3.65rem);
+}
+
+.info-article > section {
+  padding: 48px 0;
+  border-top: 1px solid var(--line);
+}
+
+.info-article > section h2 {
+  margin-bottom: 20px;
+  font-size: clamp(1.4rem, 3vw, 1.8rem);
+}
+
+.info-article p { color: #c5c7d1; }
+.info-article em { color: var(--accent-bright); }
+
+.info-list {
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.info-list li {
+  position: relative;
+  padding: 12px 0 12px 30px;
+  border-bottom: 1px solid var(--line);
+  color: #c5c7d1;
+}
+
+.info-list li::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 24px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px rgba(155, 123, 255, .5);
+}
+
+.profile-card,
+.contact-panel {
+  margin: 28px 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.profile-card dl { margin: 0; }
+
+.profile-card dl > div {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 18px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.profile-card dl > div:first-child { padding-top: 0; }
+.profile-card dl > div:last-child { padding-bottom: 0; border-bottom: 0; }
+.profile-card dt { color: #858896; font-size: .82rem; }
+.profile-card dd { margin: 0; color: var(--ink); }
+
+.contact-panel { border-color: #4e426b; background: var(--accent-soft); }
+.contact-label { margin: 0 0 10px; color: var(--accent-bright) !important; font: 700 .7rem/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .14em; }
+.contact-address { margin: 0; overflow-wrap: anywhere; font-size: 1rem; }
+.contact-address a {
+  color: #80c8ff;
+  text-decoration: underline;
+  text-decoration-color: rgba(128, 200, 255, .45);
+  text-underline-offset: .18em;
+}
+.contact-address a:hover { color: #b7e0ff; }
+
+.policy-date {
+  margin-top: 28px;
+  color: #777a89 !important;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: .78rem;
+}
+
+.text-link {
+  color: #80c8ff;
+  text-decoration: underline;
+  text-decoration-color: rgba(128, 200, 255, .45);
+  text-underline-offset: .18em;
+}
+
+.text-link:hover { color: #b7e0ff; }
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.footer-links {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 20px;
+}
+
+.footer-links a {
+  color: #80c8ff;
+  text-decoration: none;
+  font-size: .76rem;
+}
+
+.footer-links a:hover,
+.footer-links a[aria-current="page"] { color: #c4e8ff; }
+
+.article-footer {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+  .info-shell { width: min(100% - 32px, 900px); padding: 38px 0 72px; }
+  .info-hero { padding-bottom: 40px; }
+  .info-article > section { padding: 40px 0; }
+  .profile-card dl > div { grid-template-columns: 1fr; gap: 5px; }
+  .site-footer.info-footer,
+  .article-footer { align-items: flex-start; flex-direction: column; }
+  .footer-links { margin-left: 0; justify-content: flex-start; }
+}
